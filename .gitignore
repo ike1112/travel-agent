@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# CDK
+cdk/cdk.out/
+cdk/.venv/
+cdk/node_modules/
+
+# Environment / secrets
+.env
+*.env
+.aws/credentials
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
