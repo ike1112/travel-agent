@@ -8,6 +8,14 @@ import hashlib
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
+from decimal import Decimal
+
+# Decimal Encoder
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super(DecimalEncoder, self).default(obj)
 
 # Configuration
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
@@ -185,7 +193,7 @@ def lambda_handler(event, context):
     if not user_input:
         return {
             "statusCode": 400,
-            "body": json.dumps({"error": "No input provided", "correlationId": correlation_id})
+            "body": json.dumps({"error": "No input provided", "correlationId": correlation_id}, cls=DecimalEncoder)
         }
 
     # Structured Logging
@@ -210,7 +218,7 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 "headers": {"Content-Type": "application/json"},
-                "body": json.dumps(existing_item["Item"]["result"])
+                "body": json.dumps(existing_item["Item"]["result"], cls=DecimalEncoder)
             }
     except ClientError as e:
         # If DynamoDB fails (e.g. bad table name), we log it but PROCEED to Bedrock
@@ -242,12 +250,12 @@ def lambda_handler(event, context):
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(result)
+            "body": json.dumps(result, cls=DecimalEncoder)
         }
 
     except Exception as e:
         logger.error(json.dumps({**log_context, "status": "error", "error": str(e)}))
         return {
             "statusCode": 500,
-            "body": json.dumps({"error": "Internal Server Error", "correlationId": correlation_id})
+            "body": json.dumps({"error": "Internal Server Error", "correlationId": correlation_id}, cls=DecimalEncoder)
         }
