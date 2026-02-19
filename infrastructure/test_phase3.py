@@ -135,7 +135,7 @@ def test_async_happy_path():
             
             if result:
                 print(f"\n   ✅ Found result in DynamoDB!")
-                print(f"      Extracted: {result.get('result', {}).get('destination')}")
+                print(f"      Extracted: {result.get('result', {}).get('extracted', {}).get('destination')}")
             else:
                 print(f"\n   ❌ Failed to find result in DynamoDB within timeout.")
         else:
@@ -192,7 +192,7 @@ def test_dlq_failure():
     print(f"   ⏳ Polling DLQ ({DLQ_URL}) for failure message (retries may take ~10-30s)...")
     
     start_time = time.time()
-    while time.time() - start_time < 45:
+    while time.time() - start_time < 90:
         try:
             # We use receive_message to see if anything is there
             response = sqs.receive_message(
@@ -213,7 +213,7 @@ def test_dlq_failure():
         time.sleep(2)
         print(".", end="", flush=True)
     
-    print("\n   ❌ Timeout: No message found in DLQ after 45s.")
+    print("\n   ❌ Timeout: No message found in DLQ after 90s.")
 
 def main():
     if not API_URL:
