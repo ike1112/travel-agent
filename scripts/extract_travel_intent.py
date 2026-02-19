@@ -34,7 +34,8 @@ OPTIONAL (capture if present, null if absent):
 VALIDATION RULES:
 1. If origin_city is not explicitly stated, set it to null and add "origin_city" to missing_fields.
 2. If destination is vague or non-specific (e.g. "somewhere warm", "a beach", "somewhere cheap"), set it to null and add "destination" to missing_fields.
-3. Travel dates must be specific enough to pass to a flight search API (exact dates or a named long weekend that resolves to specific dates). Vague phrases like "next week", "sometime this summer", "in March" without a specific range, or "soon" are NOT acceptable — set travel_dates to null and add "travel_dates" to missing_fields.
+3. Travel dates must be specific enough to pass to a flight search API. You must NOT infer specific dates from seasons (e.g. "summer", "winter") or vague timeframes (e.g. "next week", "sometime", "later this year"). If the user says "sometime this summer", "in March" (without days), or "in 2024", this is VAGUE. You MUST set travel_dates to null and add "travel_dates" to missing_fields. Do not guess.
+
 4. If budget_cad is absent from the request entirely, set it to null and add "budget_cad" to missing_fields. NEVER set budget_cad to null if a dollar amount was stated — even if it seems unrealistically low. $200 stated = budget_cad: 200. $50 stated = budget_cad: 50. The number the user says is what gets extracted, always.
 5. If dates are contradictory (e.g. two different stated departure dates, or a departure date that is after the return date), set travel_dates to null, add "travel_dates" to missing_fields, and explain the conflict in the notes field.
 6. If budget appears unrealistically low for the stated trip (e.g. under $500 CAD for international flights), still extract the stated amount into budget_cad but set budget_warning to a brief explanation.
@@ -53,7 +54,8 @@ CRITICAL SELF-CHECK — you must evaluate each condition before writing the JSON
   CONDITION B: Is destination set to a non-null specific searchable city/country?
     → If NO: missing_fields must include "destination" AND status must be "NEEDS_CLARIFICATION"
 
-  CONDITION C: Are BOTH travel_dates.departure AND travel_dates.return non-null YYYY-MM-DD strings?
+  CONDITION C: Are BOTH travel_dates.departure AND travel_dates.return non-null YYYY-MM-DD strings derived from EXPLICIT user input?
+    → If you inferred dates from "summer", "winter", "next month", etc., YOU ARE WRONG. Set travel_dates to null, add "travel_dates" to missing_fields, and set status to "NEEDS_CLARIFICATION".
     → If NO: missing_fields must include "travel_dates" AND status must be "NEEDS_CLARIFICATION"
 
   CONDITION D: Is budget_cad set to a non-null number?
