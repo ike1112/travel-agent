@@ -159,10 +159,18 @@ def extract_travel_intent(user_input):
     return _enforce_status_rules(parsed)
 
 def lambda_handler(event, context):
+    # Default correlation set
     correlation_id = str(uuid.uuid4())
     
-    # Handle direct invocation or API Gateway Proxy
-    if "body" in event:
+    # Check for EventBridge invocation
+    if "detail" in event:
+        user_input = event["detail"].get("input")
+        correlation_id = event["detail"].get("correlationId", correlation_id)
+        # We can also use the requestId passed from Intake
+        request_id_from_intake = event["detail"].get("requestId")
+    
+    # Handle direct invocation or API Gateway Proxy (Legacy/Test)
+    elif "body" in event:
         try:
             body = json.loads(event["body"])
             user_input = body.get("input")
@@ -170,6 +178,9 @@ def lambda_handler(event, context):
             user_input = event.get("body")
     else:
         user_input = event.get("input")
+    
+    if user_input == "FORCE_CRASH":
+        raise Exception("Features: FORCE_CRASH - Deliberate Failure for DLQ Test")
 
     if not user_input:
         return {
@@ -186,7 +197,11 @@ def lambda_handler(event, context):
     logger.info(json.dumps({**log_context, "status": "start", "input_length": len(user_input)}))
 
     # Idempotency Check
-    request_hash = hashlib.sha256(user_input.encode("utf-8")).hexdigest()
+    # Use request_id from intake if available, otherwise hash input
+    if 'request_id_from_intake' in locals() and request_id_from_intake:
+        request_hash = request_id_from_intake
+    else:
+        request_hash = hashlib.sha256(user_input.encode("utf-8")).hexdigest()
     
     try:
         existing_item = table.get_item(Key={"requestId": request_hash})
