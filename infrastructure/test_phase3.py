@@ -116,7 +116,8 @@ def poll_dynamodb(request_id, timeout=30):
 
 def test_async_happy_path():
     print("\n🧪 TEST 1: Async Happy Path (API Gateway -> EventBridge -> Lambda -> DynamoDB)")
-    payload = {"input": "I want to go to Tokyo next month for sushi, budget $3000"}
+    unique_suffix = int(time.time())
+    payload = {"input": f"I want to fly from Edmonton to Paris next month for croissants, budget $3000. Ref: {unique_suffix}"}
     
     # 1. Send POST request
     try:
@@ -136,6 +137,10 @@ def test_async_happy_path():
             if result:
                 print(f"\n   ✅ Found result in DynamoDB!")
                 print(f"      Extracted: {result.get('result', {}).get('extracted', {}).get('destination')}")
+                if "executionArn" in result:
+                     print(f"      Workflow Started: {result['executionArn']}")
+                else:
+                     print(f"      ⚠️ No executionArn found in DynamoDB item.")
             else:
                 print(f"\n   ❌ Failed to find result in DynamoDB within timeout.")
         else:

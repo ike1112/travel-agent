@@ -232,25 +232,53 @@ def lambda_handler(event, context):
         duration_ms = (datetime.now() - start_time).total_seconds() * 1000
         logger.info(json.dumps({**log_context, "status": "bedrock_success", "duration_ms": duration_ms}))
 
+
+        # Start Step Functions Execution if ready
+        execution_arn = None
+        if result.get("status") == "READY_TO_PROCESS":
+             state_machine_arn = os.environ.get("STATE_MACHINE_ARN")
+             if state_machine_arn:
+                 try:
+                     sfn = boto3.client("stepfunctions")
+                     sfn_response = sfn.start_execution(
+                         stateMachineArn=state_machine_arn,
+                         name=f"exec-{request_hash}-{int(datetime.now().timestamp())}", 
+                         input=json.dumps({
+                             "requestId": request_hash,
+                             "extracted": result["extracted"]
+                         }, cls=DecimalEncoder)
+                     )
+                     execution_arn = sfn_response["executionArn"]
+                     logger.info(json.dumps({**log_context, "status": "job_started", "execution_arn": execution_arn}))
+                 except Exception as e:
+                     logger.error(json.dumps({**log_context, "status": "sfn_start_error", "error": str(e)}))
+             else:
+                 logger.warning(json.dumps({**log_context, "status": "no_state_machine_arn"}))
+
         # Write to DynamoDB (Best Effort)
         try:
             ttl = int((datetime.now() + timedelta(days=30)).timestamp())
-            table.put_item(
-                Item={
-                    "requestId": request_hash,
-                    "result": result,
-                    "ttl": ttl,
-                    "correlationId": correlation_id,
-                    "timestamp": datetime.now().isoformat()
-                }
-            )
+            item = {
+                "requestId": request_hash,
+                "result": result,
+                "ttl": ttl,
+                "correlationId": correlation_id,
+                "timestamp": datetime.now().isoformat()
+            }
+            if execution_arn:
+                item["executionArn"] = execution_arn
+                
+            table.put_item(Item=item)
+
         except ClientError as e:
              logger.error(json.dumps({**log_context, "status": "dynamodb_write_error", "error": str(e)}))
+        
+        response_body = {"result": result, "executionArn": execution_arn, "correlationId": correlation_id}
         
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(result, cls=DecimalEncoder)
+            "body": json.dumps(response_body, cls=DecimalEncoder)
         }
 
     except Exception as e:
