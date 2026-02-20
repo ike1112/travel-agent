@@ -263,7 +263,8 @@ def lambda_handler(event, context):
                 "result": result,
                 "ttl": ttl,
                 "correlationId": correlation_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "status": "STARTED" # Initial status
             }
             if execution_arn:
                 item["executionArn"] = execution_arn

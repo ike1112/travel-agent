@@ -24,7 +24,7 @@ def get_forecast(city):
     url = f"{OPENWEATHER_BASE_URL}?{query}"
     
     try:
-        with urllib.request.urlopen(url) as response:
+        with urllib.request.urlopen(url, timeout=10) as response:
             return json.loads(response.read())
     except Exception as e:
         print(f"Error getting weather: {e}")

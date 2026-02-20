@@ -1,10 +1,11 @@
-
 import json
 import boto3
 import os
+from botocore.config import Config
 
 # Client initialization outside handlers for cold start optimization
-bedrock = boto3.client("bedrock-runtime")
+config = Config(read_timeout=15, connect_timeout=5, retries={"max_attempts": 2})
+bedrock = boto3.client("bedrock-runtime", config=config)
 MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0"
 
 def parse_event_data(event):

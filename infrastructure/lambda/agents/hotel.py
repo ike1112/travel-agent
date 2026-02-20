@@ -32,7 +32,7 @@ def search_hotels(destination, budget_level=None):
     req = urllib.request.Request(PLACES_API_URL, data=json.dumps(data).encode(), headers=headers)
     
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             result = json.loads(response.read())
             return result.get("places", [])
     except Exception as e:

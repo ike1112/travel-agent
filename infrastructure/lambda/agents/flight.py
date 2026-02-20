@@ -22,7 +22,7 @@ def get_access_token():
     
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             return json.loads(response.read())["access_token"]
     except Exception as e:
         print(f"Error getting Amadeus token: {e}")
@@ -48,7 +48,7 @@ def search_flights(token, origin, destination, departure_date, return_date=None,
     
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read())
             return data.get("data", [])
     except urllib.error.HTTPError as e:

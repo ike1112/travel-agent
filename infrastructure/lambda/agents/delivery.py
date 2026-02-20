@@ -13,14 +13,26 @@ def lambda_handler(event, context):
     if request_id and TABLE_NAME:
         try:
             table = dynamodb.Table(TABLE_NAME)
+            
+            # Prepare update expression
+            update_expr = "SET #s = :status, delivery_timestamp = :ts"
+            expr_values = {
+                ":status": "COMPLETED",
+                ":ts": datetime.now().isoformat()
+            }
+            expr_names = {"#s": "status"}
+
+            # Save narrative if present
+            narrative = event.get("narrative")
+            if narrative:
+                update_expr += ", narrative = :narrative"
+                expr_values[":narrative"] = narrative
+
             table.update_item(
                 Key={"requestId": request_id},
-                UpdateExpression="SET #s = :status, delivery_timestamp = :ts",
-                ExpressionAttributeNames={"#s": "status"},
-                ExpressionAttributeValues={
-                    ":status": "COMPLETED",
-                    ":ts": datetime.now().isoformat()
-                }
+                UpdateExpression=update_expr,
+                ExpressionAttributeNames=expr_names,
+                ExpressionAttributeValues=expr_values
             )
             print(f"Updated DynamoDB status for {request_id}")
         except Exception as e:

@@ -196,6 +196,10 @@ class WorkflowStack(Stack):
             timeout=Duration.seconds(10),
             memory_size=128,
         )
+        
+        # Grant Error Handler access to Table
+        self.request_table.grant_read_write_data(self.error_handler_lambda)
+        self.error_handler_lambda.add_environment("REQUEST_TABLE_NAME", self.request_table.table_name)
 
         # === 5. Define Step Functions Tasks ===
         
