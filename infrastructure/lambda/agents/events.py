@@ -39,7 +39,7 @@ def lambda_handler(event, context):
         intent = intent["input"]
         
     destination = intent.get("destination", "London")
-    activity_prefs = intent.get("activity_preferences", ["tourist attractions"])
+    activity_prefs = intent.get("activity_preferences") or ["tourist attractions"]
     
     all_places = []
     

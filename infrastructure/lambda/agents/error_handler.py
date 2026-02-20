@@ -23,8 +23,8 @@ def lambda_handler(event, context):
             table = dynamodb.Table(TABLE_NAME)
             table.update_item(
                 Key={"requestId": request_id},
-                UpdateExpression="SET #s = :status, error = :err",
-                ExpressionAttributeNames={"#s": "status"},
+                UpdateExpression="SET #s = :status, #e = :err",
+                ExpressionAttributeNames={"#s": "status", "#e": "error"},
                 ExpressionAttributeValues={
                     ":status": "FAILED",
                     ":err": error_msg[:1000] # Truncate to avoid DynamoDB limits

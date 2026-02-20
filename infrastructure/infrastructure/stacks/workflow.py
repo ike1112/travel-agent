@@ -24,6 +24,7 @@ class WorkflowStack(Stack):
         # === 1. DynamoDB Request Log Table ===
         self.request_table = dynamodb.Table(
             self, "TravelRequestLog",
+            table_name="travel-agent-request-log",
             partition_key=dynamodb.Attribute(
                 name="requestId",
                 type=dynamodb.AttributeType.STRING
@@ -36,6 +37,7 @@ class WorkflowStack(Stack):
         # === 2. Dead Letter Queue ===
         self.dlq = sqs.Queue(
             self, "BrokerDLQ",
+            queue_name="travel-agent-broker-dlq",
             retention_period=Duration.days(14)
         )
 
@@ -63,6 +65,7 @@ class WorkflowStack(Stack):
 
         self.broker_lambda = lambda_.Function(
             self, "BrokerLambda",
+            function_name="travel-agent-broker",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="broker.handler.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -102,6 +105,7 @@ class WorkflowStack(Stack):
         # Flight Agent
         self.flight_lambda = lambda_.Function(
             self, "FlightAgent",
+            function_name="travel-agent-flight",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="agents.flight.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -116,6 +120,7 @@ class WorkflowStack(Stack):
         # Hotel Agent
         self.hotel_lambda = lambda_.Function(
             self, "HotelAgent",
+            function_name="travel-agent-hotel",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="agents.hotel.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -129,6 +134,7 @@ class WorkflowStack(Stack):
         # Weather Agent
         self.weather_lambda = lambda_.Function(
             self, "WeatherAgent",
+            function_name="travel-agent-weather",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="agents.weather.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -142,6 +148,7 @@ class WorkflowStack(Stack):
         # Events Agent
         self.events_lambda = lambda_.Function(
             self, "EventsAgent",
+            function_name="travel-agent-events",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="agents.events.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -155,6 +162,7 @@ class WorkflowStack(Stack):
         # Synthesis Agent
         self.synthesis_lambda = lambda_.Function(
             self, "SynthesisAgent",
+            function_name="travel-agent-synthesis",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="agents.synthesis.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -176,6 +184,7 @@ class WorkflowStack(Stack):
         # Delivery Agent
         self.delivery_lambda = lambda_.Function(
             self, "DeliveryAgent",
+            function_name="travel-agent-delivery",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="agents.delivery.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -186,10 +195,20 @@ class WorkflowStack(Stack):
         # Grant Delivery access to Table
         self.request_table.grant_read_write_data(self.delivery_lambda)
         self.delivery_lambda.add_environment("REQUEST_TABLE_NAME", self.request_table.table_name)
+        self.delivery_lambda.add_environment("SENDER_EMAIL", os.environ.get("SENDER_EMAIL", ""))
+        
+        # Grant SES SendEmail
+        self.delivery_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["ses:SendEmail", "ses:SendRawEmail"],
+                resources=["*"], # In production, restrict to specific identity ARN
+            )
+        )
         
         # Error Handler Agent
         self.error_handler_lambda = lambda_.Function(
             self, "ErrorHandlerAgent",
+            function_name="travel-agent-error-handler",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="agents.error_handler.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -207,43 +226,43 @@ class WorkflowStack(Stack):
         flight_task = tasks.LambdaInvoke(
             self, "FlightSearch",
             lambda_function=self.flight_lambda,
+            payload_response_only=True,
             result_path="$.flight_output",
-            output_path="$.Payload",
         )
 
         # Hotel Task
         hotel_task = tasks.LambdaInvoke(
             self, "HotelSearch",
             lambda_function=self.hotel_lambda,
-            output_path="$.Payload",
+            payload_response_only=True,
         )
 
         # Weather Task
         weather_task = tasks.LambdaInvoke(
             self, "WeatherSearch",
             lambda_function=self.weather_lambda,
-            output_path="$.Payload",
+            payload_response_only=True,
         )
 
         # Events Task
         events_task = tasks.LambdaInvoke(
             self, "EventsSearch",
             lambda_function=self.events_lambda,
-            output_path="$.Payload",
+            payload_response_only=True,
         )
         
         # Synthesis Task
         synthesis_task = tasks.LambdaInvoke(
             self, "SynthesizeResults",
             lambda_function=self.synthesis_lambda,
-            output_path="$.Payload",
+            payload_response_only=True,
         )
 
         # Delivery Task
         delivery_task = tasks.LambdaInvoke(
             self, "DeliverEmail",
             lambda_function=self.delivery_lambda,
-            output_path="$.Payload",
+            payload_response_only=True,
         )
         
         # Error Handler Task
@@ -274,10 +293,14 @@ class WorkflowStack(Stack):
 
         # === 7. State Machine ===
         
-        log_group = logs.LogGroup(self, "WorkflowLogGroup", retention=logs.RetentionDays.ONE_MONTH)
+        log_group = logs.LogGroup(self, "WorkflowLogGroup",
+            log_group_name="/travel-agent/workflow",
+            retention=logs.RetentionDays.ONE_MONTH
+        )
 
         self.state_machine = sfn.StateMachine(
             self, "TravelAgentWorkflow",
+            state_machine_name="travel-agent-workflow",
             definition=definition,
             timeout=Duration.minutes(5),
             tracing_enabled=True,

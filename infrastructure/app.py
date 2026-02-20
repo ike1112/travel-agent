@@ -24,6 +24,10 @@ workflow_stack = WorkflowStack(app, "TravelAgentWorkflowStack",
     env=env
 )
 DeliveryStack(app, "TravelAgentDeliveryStack", env=env)
-ObservabilityStack(app, "TravelAgentObservabilityStack", env=env)
+
+observability_stack = ObservabilityStack(app, "TravelAgentObservabilityStack", 
+    workflow_stack=workflow_stack,
+    env=env
+)
 
 app.synth()

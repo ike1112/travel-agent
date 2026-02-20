@@ -258,13 +258,21 @@ def lambda_handler(event, context):
         # Write to DynamoDB (Best Effort)
         try:
             ttl = int((datetime.now() + timedelta(days=30)).timestamp())
+            # Set DynamoDB status based on whether workflow was actually started
+            if execution_arn:
+                db_status = "STARTED"
+            elif result.get("status") == "NEEDS_CLARIFICATION":
+                db_status = "NEEDS_CLARIFICATION"
+            else:
+                db_status = "PENDING"
+            
             item = {
                 "requestId": request_hash,
                 "result": result,
                 "ttl": ttl,
                 "correlationId": correlation_id,
                 "timestamp": datetime.now().isoformat(),
-                "status": "STARTED" # Initial status
+                "status": db_status
             }
             if execution_arn:
                 item["executionArn"] = execution_arn

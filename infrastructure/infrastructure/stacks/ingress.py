@@ -1,5 +1,6 @@
 from aws_cdk import (
     Stack,
+    CfnOutput,
     aws_dynamodb as dynamodb,
     aws_lambda as lambda_,
     aws_iam as iam,
@@ -37,6 +38,7 @@ class IngressStack(Stack):
 
         self.intake_lambda = lambda_.Function(
             self, "IntakeLambda",
+            function_name="travel-agent-intake",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="intake.handler.lambda_handler", 
             code=lambda_.Code.from_asset("lambda"),
@@ -52,6 +54,7 @@ class IngressStack(Stack):
         # === 3. API Gateway (REST API) ===
         self.api = apigateway.LambdaRestApi(
             self, "TravelApi",
+            rest_api_name="travel-agent-api",
             handler=self.intake_lambda,
             proxy=False,
             deploy_options=apigateway.StageOptions(
@@ -63,3 +66,10 @@ class IngressStack(Stack):
         # POST /travel resource
         travel_resource = self.api.root.add_resource("travel")
         travel_resource.add_method("POST")
+
+        # Output the API URL with a clean name
+        CfnOutput(self, "ApiUrl",
+            value=f"{self.api.url}travel",
+            description="Travel Agent API endpoint",
+            export_name="travel-agent-api-url"
+        )
